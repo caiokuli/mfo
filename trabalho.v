@@ -9,12 +9,16 @@
 
 Require Setoid.
 Require Import Coq.Init.Logic.
+Require Import Notations.
+Require Import Relation_Operators.
+Require Import Transitive_Closure.
 
-
+Module ListNotations.
 Notation "[ ]" := nil (format "[ ]") : list_scope.
 Notation "[ x ]" := (cons x nil) : list_scope.
 Notation "[ x ; y ; .. ; z ]" := (cons x (cons y .. (cons z nil) ..)) : list_scope.
-
+End ListNotations.
+Import ListNotations.
 
 Inductive reg_exp {T : Type} : Type :=
   | EmptySet
@@ -90,9 +94,20 @@ Theorem union_dist_app : forall T (s : list T) (r1 r2 r3 : reg_exp),
   s =~ App r1 (Union r2 r3) <-> s =~ Union (App r1 r2) (App r1 r3).
 Proof.
   intros. split. 
-  + intros.  
-  
+  + intros . inversion H. inversion H4.
+  - apply MUnionL. apply MApp.
+   -- apply H3.
+   -- apply H7.
+  - apply MUnionR. apply MApp.
+    -- apply H3.
+    -- apply H7.
+  + intros. inversion H. inversion H2. 
+    - apply MApp. 
+    -- apply H7.
+    -- apply MUnionL. apply H8.
+    - inversion H1. apply MApp. apply H7. apply MUnionR. apply H8. 
   Qed.
+
 
 Fixpoint re_not_empty {T : Type} (re : @reg_exp T) : bool :=
   match re with
@@ -104,8 +119,37 @@ Fixpoint re_not_empty {T : Type} (re : @reg_exp T) : bool :=
     | Star re1 => true
 end.
 
+
+
 (* Teorema 5: *)
 Theorem re_not_empty_correct : forall T (re : @reg_exp T),
   (exists s, s =~ re) <-> re_not_empty re = true.
 Proof.
-  Admitted.
+  intros. split.
+    + intros. induction H. induction H.
+     - simpl. reflexivity.
+     - simpl. reflexivity.
+     - simpl. rewrite IHexp_match1. rewrite IHexp_match2. simpl. reflexivity.
+     - simpl. rewrite IHexp_match. simpl. reflexivity.
+     - simpl. rewrite IHexp_match. destruct (re_not_empty re1).
+        simpl. reflexivity. simpl. reflexivity.
+     - simpl. reflexivity.
+     - apply IHexp_match2.
+    + intros. induction re.
+      - discriminate H.
+      - exists nil. apply MEmpty.
+      - exists (cons t nil). apply MChar.
+      - simpl in H. 
+          assert (re_not_empty re1 = true). 
+          { induction (re_not_empty re1). reflexivity. discriminate H. }
+          assert (re_not_empty re2 = true). 
+          {rewrite H0 in H. induction (re_not_empty re2). reflexivity. discriminate H. }
+       apply IHre1 in H0. apply IHre2 in H1. induction H0. induction H1.
+       exists (app x x0). apply MApp. apply H0. apply H1.
+      - simpl in H. assert  (re_not_empty re1 = true \/ re_not_empty re2 = true). 
+      {induction (re_not_empty re1). left. reflexivity. induction (re_not_empty re2). right.
+      reflexivity. discriminate H. } destruct H0. 
+        -- apply IHre1 in H0. induction H0. exists x. apply MUnionL. apply H0.
+        -- apply IHre2 in H0. induction H0. exists x. apply MUnionR. apply H0.
+      - exists nil. apply MStar0.
+Qed.
